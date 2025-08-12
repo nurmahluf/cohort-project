@@ -56,7 +56,7 @@ print(df_liver.head())
 df_filtered = (
     store.reset()
          .select_cohort(first_study)
-         .filter(Sex='f', **{"Age Scan":('>', 70)})   # note the space in "Age Scan"
+         .filter(Sex='f', **{"Age Scan":('>', 70)})   
          .metrics(organs=["Liver"], kinds=["Volume","SUVMean"])
          .to_pandas()
 )

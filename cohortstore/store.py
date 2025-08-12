@@ -42,9 +42,9 @@ class CohortStore:
         self._study_col = self._detect_study_col()
         self._where_parts: List[str] = []
         self._params: List[Any] = []
-        self._select_cols: Optional[List[str]] = None  # None = select *
+        self._select_cols: Optional[List[str]] = None  
 
-    # ---------- internals ----------
+    # internals 
 
     def _detect_study_col(self) -> str:
         cols = (
@@ -73,7 +73,7 @@ class CohortStore:
         sql = f"SELECT {select} FROM {self._quote_ident(self.table)} WHERE {where_sql}"
         return sql, list(self._params)
 
-    # ---------- Basic ops ----------
+    #  Basic ops 
 
     def reset(self) -> "CohortStore":
         """Clear previous selections/filters."""
@@ -164,7 +164,7 @@ class CohortStore:
         self._select_cols = ordered
         return self
 
-    # ---------- Materialization ----------
+    # Materialization 
 
     def to_pandas(self):
         sql, params = self._build_sql()
@@ -173,8 +173,8 @@ class CohortStore:
     def to_polars(self):
         """Optional fast path if you installed polars."""
         try:
-            import polars as pl  # type: ignore
-        except Exception as e:  # noqa: BLE001
+            import polars as pl  
+        except Exception as e:  
             raise RuntimeError(
                 "Polars is not installed. Run `pip install polars` to use to_polars()."
             ) from e
@@ -183,13 +183,13 @@ class CohortStore:
         pdf = self.con.execute(sql, params).df()
         return pl.from_pandas(pdf)
 
-    # ---------- Convenience ----------
+    #  Convenience 
 
     def query_sql(self) -> str:
      sql, _ = self._build_sql()   # <-- add the parentheses here
      return sql
 
-    # ---------- Context management ----------
+    #  Context management 
 
     def close(self) -> None:
         try:
