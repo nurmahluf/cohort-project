@@ -1,0 +1,13 @@
+[project]
+name = "cohortstore"
+version = "0.1.0"
+description = "Lightweight cohort data access over DuckDB"
+requires-python = ">=3.9"
+dependencies = ["duckdb", "pandas", "pyarrow"]
+
+[tool.setuptools]
+packages = ["cohortstore"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
