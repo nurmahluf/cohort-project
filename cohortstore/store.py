@@ -19,16 +19,16 @@ class CohortStore:
               .to_pandas()
         )
 
-    API:
+    API (beginner-friendly):
         - list_studies() -> pandas.DataFrame
         - select_cohort(name: str) -> CohortStore
         - filter(**columns) -> CohortStore
             e.g. filter(Sex='f', Age=('>', 70))
             tuple format is (op, value) where op in {'>','>=','<','<=','=','!=','LIKE'}
         - metrics(organs=[...], kinds=[...]) -> CohortStore
-            picks columns by name tokens (case-insensitive),
-            organs AND (OR over kinds) logic
+            picks columns by name tokens (case-insensitive)
         - to_pandas() / to_polars()
+        - save_csv(path) / save_parquet(path)
         - query_sql() -> str
         - reset() -> CohortStore
     """
@@ -42,7 +42,7 @@ class CohortStore:
         self._study_col = self._detect_study_col()
         self._where_parts: List[str] = []
         self._params: List[Any] = []
-        self._select_cols: Optional[List[str]] = None  
+        self._select_cols: Optional[List[str]] = None  # None = select *
 
     # internals 
 
@@ -62,7 +62,7 @@ class CohortStore:
         """Safely double-quote a DuckDB identifier."""
         return '"' + name.replace('"', '""') + '"'
 
-    def _build_sql(self) -> Tuple[str, List[Any]]:
+    def _build_sql(self):
         where_sql = " AND ".join(self._where_parts) if self._where_parts else "1=1"
 
         if self._select_cols is None:
@@ -73,7 +73,7 @@ class CohortStore:
         sql = f"SELECT {select} FROM {self._quote_ident(self.table)} WHERE {where_sql}"
         return sql, list(self._params)
 
-    #  Basic ops 
+    #  basic ops
 
     def reset(self) -> "CohortStore":
         """Clear previous selections/filters."""
@@ -83,7 +83,7 @@ class CohortStore:
     def list_studies(self):
         """
         Return a DataFrame of the available studies.
-        Expects a table named `studies` with a `study_name` column.
+        Expects a table/view named `studies` with a `study_name` column.
         """
         return self.con.execute("SELECT * FROM studies ORDER BY study_name").df()
 
@@ -96,7 +96,6 @@ class CohortStore:
         """
         Column filters:
             filter(Sex='f', Age=('>', 70))
-
         Tuple values use (op, value) where op in {'>','>=','<','<=','=','!=','LIKE'}.
         """
         for col, val in columns.items():
@@ -123,12 +122,10 @@ class CohortStore:
     ) -> "CohortStore":
         """
         Pick measurement columns whose names contain tokens (case-insensitive).
-
         Uses AND between groups and OR within each group:
             organs=['Liver'] and kinds=['Volume','SUVMean']
-        -> matches columns that contain 'Liver' AND (either 'Volume' OR 'SUVMean').
-
-        The detected study column and a single ID-like column are always included if present.
+        -> matches columns containing 'Liver' AND (either 'Volume' OR 'SUVMean').
+        The detected study column and one ID-like column are always included if present.
         """
         colnames: List[str] = (
             self.con.execute(f'PRAGMA table_info("{self.table}")').df()["name"].tolist()
@@ -145,15 +142,13 @@ class CohortStore:
 
         keep: List[str] = [c for c in colnames if matches(c)]
 
-        # Always include study/id column(s) if present
         base_cols: List[str] = [self._study_col] if self._study_col in colnames else []
-
         for candidate in ("Image/Patient ID", "Patient ID", "Image ID", "ID"):
             if candidate in colnames and candidate not in base_cols:
                 base_cols.append(candidate)
                 break
 
-        # De-duplicate while keeping order
+        # to de-duplicate while keeping order
         seen = set()
         ordered: List[str] = []
         for c in base_cols + keep:
@@ -164,7 +159,7 @@ class CohortStore:
         self._select_cols = ordered
         return self
 
-    # Materialization 
+    #  materialization 
 
     def to_pandas(self):
         sql, params = self._build_sql()
@@ -173,23 +168,30 @@ class CohortStore:
     def to_polars(self):
         """Optional fast path if you installed polars."""
         try:
-            import polars as pl  
-        except Exception as e:  
+            import polars as pl  # type: ignore
+        except Exception as e:
             raise RuntimeError(
                 "Polars is not installed. Run `pip install polars` to use to_polars()."
             ) from e
-
         sql, params = self._build_sql()
         pdf = self.con.execute(sql, params).df()
         return pl.from_pandas(pdf)
 
-    #  Convenience 
+    def save_csv(self, path: str):
+        """Materialize current query to CSV."""
+        self.to_pandas().to_csv(path, index=False)
+
+    def save_parquet(self, path: str):
+        """Materialize current query to Parquet (columnar, compressed)."""
+        self.to_pandas().to_parquet(path, index=False)
+
+    # convenience
 
     def query_sql(self) -> str:
-     sql, _ = self._build_sql()   # <-- add the parentheses here
-     return sql
+        sql, _ = self._build_sql()
+        return sql
 
-    #  Context management 
+    # context management
 
     def close(self) -> None:
         try:
@@ -202,10 +204,3 @@ class CohortStore:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
-def save_csv(self, path: str):
-    """Materialize current query to CSV."""
-    self.to_pandas().to_csv(path, index=False)  # uses pandas to_csv
-
-def save_parquet(self, path: str):
-    """Materialize current query to Parquet (columnar, compressed)."""
-    self.to_pandas().to_parquet(path)  # uses pandas to_parquet (PyArrow backend)
