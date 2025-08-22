@@ -185,7 +185,6 @@ class CohortStore:
         """Materialize current query to Parquet (columnar, compressed)."""
         self.to_pandas().to_parquet(path, index=False)
 
-    # convenience
 
     def query_sql(self) -> str:
         sql, _ = self._build_sql()

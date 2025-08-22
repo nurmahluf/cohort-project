@@ -2,19 +2,16 @@ from cohortstore import CohortStore
 
 store = CohortStore("cohorts.duckdb")
 
-# List studies
 print("\n=== Studies ===")
 print(store.list_studies())
 
-# 2to Pick the first study name
 first_study = store.list_studies().iloc[0]["study_name"]
 
 # Example A: cohort + simple filters 
 df_a = (
     store.reset()
          .select_cohort(first_study)
-         # .filter(Sex='f')           # uncomment/adjust if you have Sex/Gender column
-         # .filter(Age=('>', 70))     # uncomment/adjust if you have Age column
+         
          .to_pandas()
 )
 print(f"\n=== Rows for cohort: {first_study} (first 5) ===")
@@ -24,7 +21,7 @@ print(df_a.head())
 df_b = (
     store.reset()
          .select_cohort(first_study)
-         .metrics(organs=["Liver"], kinds=["Volume","SUVMean"])  # change tokens if needed
+         .metrics(organs=["Liver"], kinds=["Volume","SUVMean"]) 
          .to_pandas()
 )
 print("\n=== Liver Volume/SUVMean sample (first 5) ===")
@@ -47,7 +44,7 @@ first_study = store.list_studies().iloc[0]["study_name"]
 df_liver = (
     store.reset()
          .select_cohort(first_study)
-         .metrics(organs=["Liver"], kinds=["Volume", "SUVMean"])  # now matches either one
+         .metrics(organs=["Liver"], kinds=["Volume", "SUVMean"]) 
          .to_pandas()
 )
 print("\n=== Liver (Volume or SUVMean) sample ===")
